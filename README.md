@@ -936,6 +936,56 @@ PostgREST returns specific error messages for invalid queries:
 
 *Plus additional fields for addresses, external references, and venue information.*
 
+### Get Entity Players History
+`GET /entities/{entity_id}/players`
+
+**Database View:** `v_entity_players_participated`
+
+**Description:** Returns all players who have ever participated in at least one match for the specified entity, including their debut date, last match date, and total matches played.
+
+**Response Fields (10 total):**
+
+| Field | Type | Nullable | Description |
+| --- | --- | --- | --- |
+| `entity_id` | uuid | YES | Entity identifier |
+| `person_id` | uuid | YES | Player's unique identifier |
+| `person_name` | text | YES | Player's full name (Latin preferred, falls back to local) |
+| `organization_id` | text | YES | Player's organization identifier |
+| `image_url` | text | YES | Player's profile image URL |
+| `status` | text | YES | Player's current status (ACTIVE, INACTIVE, etc.) |
+| `nationality` | text | YES | Player's nationality code (ISO format) |
+| `dob` | date | YES | Player's date of birth |
+| `debut_date` | timestamp without time zone | YES | Date of player's first match for this entity |
+| `last_match_date` | timestamp without time zone | YES | Date of player's most recent match for this entity |
+| `total_matches_played` | bigint | YES | Total number of matches played for this entity |
+
+**Example Usage:**
+
+```bash
+# Get all players who ever played for entity
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players
+
+# Get only active players
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players?status=eq.ACTIVE
+
+# Get players who played recently (last 2 years)
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players?last_match_date=gte.2022-01-01
+
+# Get veterans (100+ matches)
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players?total_matches_played=gte.100
+
+# Get specific fields only
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players?select=person_id,person_name,debut_date,total_matches_played
+
+# Search by player name
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players?person_name=ilike.*VIVALDI*
+
+# Order by most experienced players first
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players?order=total_matches_played.desc
+
+# Get recent debuts
+GET /entities/7e70cf51-4727-11ef-807d-ffae7c73f6b4/players?order=debut_date.desc&limit=10
+
 ---
 
 ## Public Widget Endpoints
