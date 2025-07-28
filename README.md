@@ -2,6 +2,173 @@
 
 **Base URL:** `https://api.tms.hockey`
 
+**API Type:** PostgREST API - Supports advanced querying, filtering, and data selection
+
+---
+
+## PostgREST Query Capabilities
+
+This API is built on PostgREST, which automatically provides powerful querying capabilities for all GET endpoints. You can use these operators to filter, sort, and shape your data requests.
+
+### Basic Query Structure
+
+```
+GET /endpoint?parameter=operator.value
+```
+
+### Filtering Operators
+
+| Operator | Description | Example |
+| --- | --- | --- |
+| `eq` | Equals | `?team_name=eq.Lightning Bolts` |
+| `neq` | Not equals | `?status=neq.completed` |
+| `gt` | Greater than | `?goals_scored=gt.5` |
+| `gte` | Greater than or equal | `?standing_position=gte.1` |
+| `lt` | Less than | `?age_group=lt.21` |
+| `lte` | Less than or equal | `?matches_played=lte.10` |
+| `like` | Pattern matching (case sensitive) | `?player_name=like.*Smith*` |
+| `ilike` | Pattern matching (case insensitive) | `?team_name=ilike.*lightning*` |
+| `in` | In list | `?status=in.(active,completed)` |
+| `is` | Is (for null values) | `?penalty_points=is.null` |
+| `not` | Negation | `?team_code=not.eq.TBD` |
+
+### Sorting
+
+```
+?order=column_name.asc
+?order=column_name.desc
+?order=column1.asc,column2.desc
+```
+
+**Examples:**
+- `?order=standing_position.asc` - Sort by position ascending
+- `?order=goals_scored.desc,assists.desc` - Sort by goals (desc), then assists (desc)
+
+### Field Selection
+
+```
+?select=field1,field2,field3
+```
+
+**Examples:**
+- `?select=team_name,team_code,logo_url` - Only return specific fields
+- `?select=*` - Return all fields (default)
+
+### Limiting Results
+
+```
+?limit=number
+?offset=number
+```
+
+**Examples:**
+- `?limit=10` - Return first 10 results
+- `?limit=10&offset=20` - Return results 21-30 (pagination)
+
+### Combining Operators
+
+```
+?field1=eq.value&field2=gte.number&order=field3.desc&limit=5
+```
+
+**Example:**
+```
+/seasons/123/teams?roster_status=eq.confirmed&final_standing=lte.3&order=final_points.desc&limit=5
+```
+*Returns top 5 teams with confirmed rosters that finished in top 3 positions*
+
+### Complex Filtering
+
+#### OR Conditions
+```
+?or=(field1.eq.value1,field2.eq.value2)
+```
+
+#### AND Conditions  
+```
+?field1=eq.value1&field2=eq.value2
+```
+
+#### Nested Conditions
+```
+?and=(field1.gte.10,or(field2.eq.active,field2.eq.completed))
+```
+
+### Practical Examples
+
+#### Get Teams by Status
+```
+GET /seasons/123/teams?season_team_status=eq.active
+```
+
+#### Search Players by Name
+```
+GET /seasons/123/teams/456/roster?person_name=ilike.*john*
+```
+
+#### Get Top Scorers
+```
+GET /seasons/123/playerstats?order=total_goals_scored.desc&limit=10
+```
+
+#### Filter by Multiple Criteria
+```
+GET /seasons/123/standings?standing_position=lte.5&standing_points=gte.20&order=standing_position.asc
+```
+
+#### Get Recent Matches
+```
+GET /fixtures/group/senior-men?fixture_date=gte.2024-01-01&order=fixture_date.desc
+```
+
+#### Complex Team Search
+```
+GET /entities?and=(age_group.eq.Senior,gender.eq.M,entity_status.eq.active)&order=entity_name_latin.asc
+```
+
+### Response Format
+
+All PostgREST responses return JSON arrays:
+
+```json
+[
+  {
+    "field1": "value1",
+    "field2": "value2"
+  },
+  {
+    "field1": "value3",
+    "field2": "value4"
+  }
+]
+```
+
+### Error Handling
+
+PostgREST returns specific error messages for invalid queries:
+
+```json
+{
+  "code": "PGRST116",
+  "details": "Results contain 0 rows, expected 1 row",
+  "hint": "The query may have failed to filter to exactly one row",
+  "message": "JSON object requested, multiple (or no) rows returned"
+}
+```
+
+### Performance Tips
+
+1. **Use field selection** to reduce payload size: `?select=id,name,status`
+2. **Add limits** for large datasets: `?limit=100`
+3. **Index your filters** - commonly filtered fields should have database indexes
+4. **Combine filters** efficiently rather than making multiple requests
+
+### PostgREST Resources
+
+- **Official Documentation**: [postgrest.org](https://postgrest.org)
+- **API Reference**: [PostgREST API](https://postgrest.org/en/stable/api.html)
+- **Query Examples**: [PostgREST Tutorials](https://postgrest.org/en/stable/tutorials/)
+
 ---
 
 ## Authentication
