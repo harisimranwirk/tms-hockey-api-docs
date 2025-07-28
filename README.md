@@ -4,43 +4,39 @@
 
 ---
 
-## 📋 Table of Contents
+## Authentication
 
-- [🔐 Authentication](#-authentication)
-- [🏒 Seasons](#-seasons)
-- [👥 Players & Personnel](#-players--personnel)  
-- [🏟️ Fixtures & Matches](#️-fixtures--matches)
-- [🏢 Organizations & Entities](#-organizations--entities)
-- [📊 Statistics](#-statistics)
-- [🌐 Public Widget Endpoints](#-public-widget-endpoints)
-- [❌ Error Responses](#-error-responses)
-- [🏒 Hockey Terminology](#-hockey-terminology)
-
----
-
-## 🔐 Authentication
-
-The API supports multiple authentication methods for different use cases:
+The API supports multiple authentication methods for different use cases.
 
 ### Web Session Authentication
-For web applications (tms.hockey, livescores.hockey)
 
+Used by web applications (tms.hockey, livescores.hockey)
+
+{% tabs %}
+{% tab title="Request" %}
 ```http
 POST /login
 POST /login-livescores
 ```
+{% endtab %}
 
-**Response:**
+{% tab title="Response" %}
 ```json
 {
   "ok": true
 }
 ```
-*Sets secure session cookie (`session_id`) valid for 4 hours*
+{% endtab %}
+{% endtabs %}
+
+Sets secure session cookie (`session_id`) valid for 4 hours.
 
 ### Mobile App Authentication
-For mobile applications
 
+Used by mobile applications
+
+{% tabs %}
+{% tab title="Request" %}
 ```http
 POST /auth/mobile
 Content-Type: application/json
@@ -50,8 +46,9 @@ Content-Type: application/json
   "clientSecret": "your-client-secret"
 }
 ```
+{% endtab %}
 
-**Response:**
+{% tab title="Response" %}
 ```json
 {
   "accessToken": "hex-token",
@@ -60,8 +57,11 @@ Content-Type: application/json
   "tokenType": "Bearer"
 }
 ```
+{% endtab %}
+{% endtabs %}
 
 ### Direct JWT Authentication
+
 For API testing (Postman, etc.)
 
 ```http
@@ -70,57 +70,88 @@ Authorization: Bearer <jwt-token>
 
 ---
 
-## 🏒 Seasons
+## Seasons
 
 ### Get All Seasons
-```http
-GET /seasons
+
+{% swagger method="get" path="/seasons" baseUrl="https://api.tms.hockey" summary="Get all seasons with competition information" %}
+{% swagger-description %}
+Retrieves all seasons with their associated competition details, registration status, and metadata.
+{% endswagger-description %}
+
+{% swagger-response status="200: OK" description="Successful response" %}
+```json
+[
+  {
+    "season_id": "uuid",
+    "season_name": "2024 Indoor League",
+    "season_start_date": "2024-01-15",
+    "season_end_date": "2024-06-30",
+    "season_status": "active",
+    "competition_name": "National Indoor Championship",
+    "entity_group_name": "Senior Men",
+    "is_active": true,
+    "current_teams": 12,
+    "max_teams": 16
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get all seasons with competition information.
-
-<details>
-<summary><strong>Response Schema (36 fields)</strong></summary>
+**Response Fields (36 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `season_id` | uuid | Unique season identifier |
 | `season_name` | string | Display name of the season |
 | `season_start_date` | date | Season start date |
 | `season_end_date` | date | Season end date |
-| `season_status` | string | Current status of the season |
+| `season_status` | string | Current status (active, completed, upcoming) |
 | `competition_id` | uuid | Associated competition ID |
 | `competition_name` | string | Competition name |
 | `competition_type` | string | Type of competition |
-| `competition_gender` | string | Gender category |
 | `age_group` | string | Age group category |
-| `competition_level` | string | Competition level |
 | `entity_group_id` | uuid | Entity group identifier |
 | `entity_group_code` | string | Entity group code |
-| `entity_group_name` | string | Entity group display name |
-| `season_description` | text | Season description |
 | `registration_open` | boolean | Registration status |
 | `max_teams` | integer | Maximum teams allowed |
 | `current_teams` | integer | Current number of teams |
 | `is_active` | boolean | Whether season is active |
 | `is_current` | boolean | Whether season is current |
-| `season_phase` | string | Current season phase |
-| *...plus additional metadata fields* |
-
-</details>
 
 ### Get Teams in Season
-```http
-GET /seasons/{seasonId}/teams
+
+{% swagger method="get" path="/seasons/{seasonId}/teams" baseUrl="https://api.tms.hockey" summary="Get all teams in a season" %}
+{% swagger-description %}
+Retrieves all teams participating in a specific season with their registration details.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="seasonId" type="uuid" required="true" %}
+Season identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Teams in the season" %}
+```json
+[
+  {
+    "team_entity_id": "uuid",
+    "team_name": "Lightning Bolts",
+    "team_code": "LB",
+    "team_logo_url": "https://example.com/logo.png",
+    "entity_group_name": "Senior Men",
+    "registration_date": "2024-01-10T10:00:00",
+    "team_status": "active"
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get all teams participating in a specific season.
-
-<details>
-<summary><strong>Response Schema (19 fields)</strong></summary>
+**Response Fields (19 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `season_id` | uuid | Season identifier |
 | `team_entity_id` | uuid | Team entity identifier |
 | `team_name` | string | Team name |
@@ -128,29 +159,49 @@ Get all teams participating in a specific season.
 | `team_code` | string | Team code |
 | `team_logo_url` | string | Team logo URL |
 | `entity_group_id` | uuid | Entity group ID |
-| `entity_group_name` | string | Entity group name |
 | `registration_date` | timestamp | Team registration date |
 | `team_status` | string | Team status in season |
 | `contact_person` | string | Contact person |
 | `contact_email` | string | Contact email |
 | `home_venue_id` | uuid | Home venue ID |
 | `founded_year` | integer | Year team was founded |
-| *...plus additional team details* |
-
-</details>
 
 ### Get Team Roster
-```http
-GET /seasons/{seasonId}/teams/{teamId}/roster
+
+{% swagger method="get" path="/seasons/{seasonId}/teams/{teamId}/roster" baseUrl="https://api.tms.hockey" summary="Get team roster" %}
+{% swagger-description %}
+Retrieves player roster for a specific team in a season.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="seasonId" type="uuid" required="true" %}
+Season identifier
+{% endswagger-parameter %}
+
+{% swagger-parameter in="path" name="teamId" type="uuid" required="true" %}
+Team entity identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Team roster" %}
+```json
+[
+  {
+    "person_id": "uuid",
+    "first_name": "John",
+    "last_name": "Smith",
+    "jersey_number": 15,
+    "position": "Forward",
+    "is_captain": false,
+    "player_status": "active"
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get player roster for a specific team in a season.
-
-<details>
-<summary><strong>Response Schema (13 fields)</strong></summary>
+**Response Fields (13 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `person_id` | uuid | Player person identifier |
 | `first_name` | string | Player's first name |
 | `last_name` | string | Player's last name |
@@ -161,54 +212,143 @@ Get player roster for a specific team in a season.
 | `is_captain` | boolean | Whether player is captain |
 | `is_alternate_captain` | boolean | Whether player is alternate captain |
 | `height` | integer | Player height (cm) |
-| *...plus additional player details* |
-
-</details>
-
-### Get Team Staff
-```http
-GET /seasons/{seasonId}/teams/{teamId}/staff
-```
-
-Get staff roster for a specific team in a season.
 
 ### Get Season Standings
-```http
-GET /seasons/{seasonId}/standings
-```
 
-Get current standings for a season.
+{% swagger method="get" path="/seasons/{seasonId}/standings" baseUrl="https://api.tms.hockey" summary="Get season standings" %}
+{% swagger-description %}
+Retrieves current standings for a season ordered by position.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="seasonId" type="uuid" required="true" %}
+Season identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Season standings" %}
+```json
+[
+  {
+    "team_entity_id": "uuid",
+    "team_name": "Lightning Bolts",
+    "standing_position": 1,
+    "games_played": 10,
+    "wins": 8,
+    "losses": 1,
+    "draws": 1,
+    "points": 25,
+    "goals_for": 32,
+    "goals_against": 15,
+    "goal_difference": 17
+  }
+]
+```
+{% endswagger-response %}
+{% endswagger %}
 
 ### Get Season Officials
-```http
-GET /seasons/{seasonId}/officials
-```
 
-Get officials assigned to a season.
+{% swagger method="get" path="/seasons/{seasonId}/officials" baseUrl="https://api.tms.hockey" summary="Get season officials" %}
+{% swagger-description %}
+Retrieves officials assigned to a season with their certification details.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="seasonId" type="uuid" required="true" %}
+Season identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Season officials" %}
+```json
+[
+  {
+    "person_id": "uuid",
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "official_type": "Referee",
+    "certification_level": "Level 3",
+    "certification_expiry": "2024-12-31",
+    "status": "active"
+  }
+]
+```
+{% endswagger-response %}
+{% endswagger %}
+
+**Response Fields (33 total):**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `person_id` | uuid | Official's person identifier |
+| `first_name` | string | Official's first name |
+| `last_name` | string | Official's last name |
+| `official_type` | string | Type of official |
+| `certification_level` | string | Certification level |
+| `certification_expiry` | date | Certification expiry date |
+| `status` | string | Official status |
+| `contact_email` | string | Contact email |
+| `experience_years` | integer | Years of experience |
+| `games_officiated` | integer | Total games officiated |
 
 ---
 
-## 👥 Players & Personnel
+## Players & Personnel
 
 ### Get Player Information
-```http
-GET /persons/{person_id}
-```
 
-Get detailed player statistics and information.
+{% swagger method="get" path="/persons/{person_id}" baseUrl="https://api.tms.hockey" summary="Get player statistics" %}
+{% swagger-description %}
+Retrieves detailed player statistics and information across all seasons.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="person_id" type="uuid" required="true" %}
+Player's person identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Player information and statistics" %}
+```json
+{
+  "person_id": "uuid",
+  "first_name": "John",
+  "last_name": "Smith",
+  "total_seasons": 3,
+  "total_goals": 45,
+  "total_assists": 32,
+  "career_statistics": {...}
+}
+```
+{% endswagger-response %}
+{% endswagger %}
 
 ### Get Person Roles
-```http
-GET /person_roles/{person_id}
+
+{% swagger method="get" path="/person_roles/{person_id}" baseUrl="https://api.tms.hockey" summary="Get person roles" %}
+{% swagger-description %}
+Retrieves all roles a person has across different seasons and matches.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="person_id" type="uuid" required="true" %}
+Person identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Person roles across seasons" %}
+```json
+[
+  {
+    "person_id": "uuid",
+    "season_name": "2024 Indoor League",
+    "season_role": "player",
+    "team_name": "Lightning Bolts",
+    "match_role": "starter",
+    "fixture_name": "Semi-Final"
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get all roles a person has across different seasons/teams.
-
-<details>
-<summary><strong>Response Schema (21 fields)</strong></summary>
+**Response Fields (21 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `person_id` | uuid | Person identifier |
 | `season_id` | uuid | Season identifier |
 | `season_name` | string | Season name |
@@ -216,37 +356,92 @@ Get all roles a person has across different seasons/teams.
 | `season_role_subtype` | string | Specific role subtype |
 | `fixture_name` | string | Fixture name (if applicable) |
 | `match_date` | timestamp | Match date |
-| `home_team` | string | Home team name |
-| `away_team` | string | Away team name |
 | `match_role` | string | Role in specific match |
 | `venue_name` | string | Venue name |
-| *...plus additional role details* |
-
-</details>
 
 ### Get Player Active Seasons
-```http
-GET /activeseasons/players/{person_id}
-```
 
-Get all active seasons for a specific player.
+{% swagger method="get" path="/activeseasons/players/{person_id}" baseUrl="https://api.tms.hockey" summary="Get player active seasons" %}
+{% swagger-description %}
+Retrieves all active seasons for a specific player with team and roster details.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="person_id" type="uuid" required="true" %}
+Player identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Player's active seasons" %}
+```json
+[
+  {
+    "person_id": "uuid",
+    "season_name": "2024 Indoor League",
+    "team_name": "Lightning Bolts",
+    "team_code": "LB",
+    "position": "Forward",
+    "bib": "15",
+    "season_status": "active"
+  }
+]
+```
+{% endswagger-response %}
+{% endswagger %}
+
+**Response Fields (17 total):**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `person_id` | uuid | Player identifier |
+| `season_id` | uuid | Season identifier |
+| `entity_id` | uuid | Team entity identifier |
+| `bib` | string | Player's jersey number |
+| `position` | string | Player's position |
+| `roster_status` | string | Player's roster status |
+| `team_name` | string | Team name |
+| `team_code` | string | Team code |
+| `season_name` | string | Season name |
+| `discipline` | string | Sport discipline |
+| `gender` | string | Gender category |
+| `age_group` | string | Age group |
 
 ---
 
-## 🏟️ Fixtures & Matches
+## Fixtures & Matches
 
 ### Get Fixtures by Group
-```http
-GET /fixtures/{group}
+
+{% swagger method="get" path="/fixtures/{group}" baseUrl="https://api.tms.hockey" summary="Get fixtures by group" %}
+{% swagger-description %}
+Retrieves fixtures filtered by entity group with security permissions applied.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="group" type="string" required="true" %}
+Entity group code
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Fixtures for the group" %}
+```json
+[
+  {
+    "fixture_id": "uuid",
+    "fixture_name": "Semi-Final",
+    "home_team_name": "Lightning Bolts",
+    "away_team_name": "Thunder Hawks",
+    "home_score": "3",
+    "away_score": "2",
+    "start_time_local": "2024-03-15T19:00:00",
+    "venue_name": "Central Arena",
+    "status": "completed"
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get fixtures filtered by entity group with security permissions.
-
-<details>
-<summary><strong>Response Schema (40 fields)</strong></summary>
+**Response Fields (40 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `fixture_id` | uuid | Fixture identifier |
 | `fixture_number` | integer | Fixture number in season |
 | `status` | string | Fixture status |
@@ -259,40 +454,46 @@ Get fixtures filtered by entity group with security permissions.
 | `start_time_local` | timestamp | Match start time (local) |
 | `start_time_utc` | timestamp | Match start time (UTC) |
 | `venue_name` | string | Venue name |
-| `venue_country` | string | Venue country |
 | `season_name` | string | Season name |
 | `competition_name` | string | Competition name |
-| *...plus additional fixture details* |
-
-</details>
-
-### Get All Fixtures (Admin Only)
-```http
-GET /fixtures/all
-```
-
-### Get Fixtures by Entity Group ID
-```http
-GET /fixtures/group/{entity_group_id}
-```
-
-### Get Fixtures by Entity ID  
-```http
-GET /fixtures/entity/{entity_id}
-```
 
 ### Get Fixture Timeline
-```http
-GET /fixtures/timeline/{fixtureId}
+
+{% swagger method="get" path="/fixtures/timeline/{fixtureId}" baseUrl="https://api.tms.hockey" summary="Get fixture timeline" %}
+{% swagger-description %}
+Retrieves real-time timeline events for a specific fixture including goals, cards, and other match events.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="fixtureId" type="uuid" required="true" %}
+Fixture identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Match timeline events" %}
+```json
+[
+  {
+    "event_id": "uuid",
+    "event_type": "goal",
+    "sub_type": "field_goal",
+    "event_time": "2024-03-15T19:15:30Z",
+    "clock_display": "15:30",
+    "entity_name": "Lightning Bolts",
+    "person_name": "John Smith",
+    "success": true,
+    "scores": {
+      "home": 1,
+      "away": 0
+    }
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get timeline events for a specific fixture (real-time match data).
-
-<details>
-<summary><strong>Response Schema (28 fields)</strong></summary>
+**Response Fields (28 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `event_id` | uuid | Event identifier |
 | `fixture_id` | uuid | Fixture identifier |
 | `event_time` | timestamp | Event timestamp |
@@ -300,104 +501,106 @@ Get timeline events for a specific fixture (real-time match data).
 | `period_id` | integer | Period identifier |
 | `event_type` | string | Type of event (goal, card, etc.) |
 | `sub_type` | string | Event subtype |
-| `entity_id` | uuid | Entity involved in event |
-| `person_id` | uuid | Person involved in event |
-| `scores` | json | Score state |
+| `entity_name` | string | Entity involved |
+| `person_name` | string | Person involved |
 | `success` | boolean | Whether event was successful |
-| `entity_name` | string | Entity name |
-| `person_name` | string | Person's name |
-| `clock_display` | string | Clock display format |
-| *...plus additional event details* |
-
-</details>
+| `scores` | json | Score state after event |
+| `clock_display` | string | Human-readable clock time |
 
 ---
 
-## 🏢 Organizations & Entities
-
-### Get All Organizations
-```http
-GET /organizations
-```
-
-<details>
-<summary><strong>Response Schema (11 fields)</strong></summary>
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `organization_id` | uuid | Organization identifier |
-| `organization_name` | string | Organization name |
-| `organization_short_name` | string | Short name |
-| `organization_type` | string | Type of organization |
-| `contact_email` | string | Contact email |
-| `contact_phone` | string | Contact phone |
-| `website` | string | Organization website |
-| `address` | text | Physical address |
-| `logo_url` | string | Logo URL |
-| `status` | string | Organization status |
-| `metadata` | json | Additional metadata |
-
-</details>
-
-### Get All Entities
-```http
-GET /entities
-```
-
-Get all entities with their associated groups (50 fields with comprehensive entity data).
-
----
-
-## 📊 Statistics
+## Statistics
 
 ### Get Player Season Statistics
-```http
-GET /seasons/{seasonId}/playerstats
+
+{% swagger method="get" path="/seasons/{seasonId}/playerstats" baseUrl="https://api.tms.hockey" summary="Get player season statistics" %}
+{% swagger-description %}
+Retrieves comprehensive player statistics for a specific season including goals, assists, cards, and performance metrics.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="seasonId" type="uuid" required="true" %}
+Season identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Player statistics for the season" %}
+```json
+[
+  {
+    "person_id": "uuid",
+    "player_name": "John Smith",
+    "team_name": "Lightning Bolts",
+    "matches_played": 12,
+    "total_goals_scored": 8,
+    "total_assists": 5,
+    "total_field_goals_scored": 6,
+    "total_penalty_corners_scored": 2,
+    "avg_goals_scored": 0.67,
+    "total_yellow_cards": 1,
+    "total_red_cards": 0
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get comprehensive player statistics for a specific season.
-
-<details>
-<summary><strong>Response Schema (39 fields)</strong></summary>
+**Response Fields (39 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `person_id` | uuid | Player's unique identifier |
-| `season_id` | uuid | Season identifier |
+| `player_name` | string | Player's full name |
 | `team_name` | string | Team name |
 | `matches_played` | integer | Total matches played |
 | `total_goals_scored` | integer | Total goals scored |
-| `total_field_goals_scored` | integer | Total field goals scored |
-| `total_penalty_corners_scored` | integer | Total penalty corners scored |
-| `total_penalty_strokes_scored` | integer | Total penalty strokes scored |
+| `total_field_goals_scored` | integer | Field goals scored |
+| `total_penalty_corners_scored` | integer | Penalty corners scored |
+| `total_penalty_strokes_scored` | integer | Penalty strokes scored |
 | `total_assists` | integer | Total assists |
-| `total_green_cards` | integer | Total green cards received |
-| `total_yellow_cards` | integer | Total yellow cards received |
-| `total_red_cards` | integer | Total red cards received |
-| `wins` | integer | Team wins |
-| `losses` | integer | Team losses |
-| `draws` | integer | Team draws |
+| `total_green_cards` | integer | Green cards received |
+| `total_yellow_cards` | integer | Yellow cards received |
+| `total_red_cards` | integer | Red cards received |
 | `avg_goals_scored` | decimal | Average goals per game |
-| `player_name` | string | Player's full name |
-| `player_image` | string | Player's image URL |
-| *...plus additional performance metrics* |
-
-</details>
+| `wins` | integer | Team wins when player participated |
+| `losses` | integer | Team losses when player participated |
+| `draws` | integer | Team draws when player participated |
 
 ### Get Entity Season Statistics
-```http
-GET /seasons/{seasonId}/entitystats
+
+{% swagger method="get" path="/seasons/{seasonId}/entitystats" baseUrl="https://api.tms.hockey" summary="Get entity season statistics" %}
+{% swagger-description %}
+Retrieves comprehensive team/entity statistics for a specific season including offensive, defensive, and possession metrics.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="seasonId" type="uuid" required="true" %}
+Season identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Entity statistics for the season" %}
+```json
+[
+  {
+    "entity_id": "uuid",
+    "team_name": "Lightning Bolts",
+    "matches_played": 12,
+    "total_goals_scored": 28,
+    "total_goals_conceded": 15,
+    "total_shots": 156,
+    "total_shots_on_target": 89,
+    "avg_possession": 58.5,
+    "wins": 8,
+    "losses": 2,
+    "draws": 2
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get comprehensive team/entity statistics for a specific season.
-
-<details>
-<summary><strong>Response Schema (61 fields)</strong></summary>
+**Response Fields (61 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `entity_id` | uuid | Entity identifier |
-| `season_id` | uuid | Season identifier |
 | `team_name` | string | Team name |
 | `matches_played` | integer | Total matches played |
 | `total_goals_scored` | decimal | Total goals scored |
@@ -411,78 +614,85 @@ Get comprehensive team/entity statistics for a specific season.
 | `wins` | integer | Total wins |
 | `losses` | integer | Total losses |
 | `draws` | integer | Total draws |
-| `total_minutes_played` | interval | Total playing time |
 | `max_biggest_lead` | integer | Biggest lead achieved |
-| *...plus advanced team analytics* |
-
-</details>
-
-### Get Entity Fixture Statistics
-```http
-GET /seasons/{seasonId}/teams/{entityId}/stats
-```
-
-Get detailed fixture-by-fixture statistics for a team (72 fields with comprehensive match data).
 
 ### Get Player Match Statistics
-```http
-GET /fixtures/players/{fixtureId}
+
+{% swagger method="get" path="/fixtures/players/{fixtureId}" baseUrl="https://api.tms.hockey" summary="Get player match statistics" %}
+{% swagger-description %}
+Retrieves detailed individual player statistics for a specific match.
+{% endswagger-description %}
+
+{% swagger-parameter in="path" name="fixtureId" type="uuid" required="true" %}
+Fixture identifier
+{% endswagger-parameter %}
+
+{% swagger-response status="200: OK" description="Player statistics for the match" %}
+```json
+[
+  {
+    "person_id": "uuid",
+    "player_name": "John Smith",
+    "team_name": "Lightning Bolts",
+    "bib": "15",
+    "position": "Forward",
+    "participated": true,
+    "starter": true,
+    "minutes": "58:30",
+    "goals_scored": 2,
+    "assists": 1,
+    "shots": 5,
+    "shots_on_target": 3,
+    "yellow_cards": 0
+  }
+]
 ```
+{% endswagger-response %}
+{% endswagger %}
 
-Get detailed player statistics for a specific match.
-
-<details>
-<summary><strong>Response Schema (59 fields)</strong></summary>
+**Response Fields (59 total):**
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `person_id` | uuid | Player ID |
-| `fixture_id` | uuid | Fixture ID |
-| `bib` | string | Player's jersey number |
+| `player_name` | string | Player's full name |
+| `team_name` | string | Team name |
+| `bib` | string | Jersey number |
 | `position` | string | Player's position |
 | `participated` | boolean | Whether player participated |
 | `starter` | boolean | Whether player was a starter |
 | `minutes` | interval | Minutes played |
-| `goals_scored` | integer | Goals scored |
-| `assists` | integer | Assists |
+| `goals_scored` | integer | Goals scored in match |
+| `assists` | integer | Assists in match |
 | `shots` | integer | Total shots |
 | `shots_on_target` | integer | Shots on target |
-| `saves` | integer | Saves (goalkeepers) |
 | `passes` | integer | Total passes |
 | `tackles` | integer | Tackles made |
-| `green_cards` | integer | Green cards received |
-| `yellow_cards` | integer | Yellow cards received |
-| `red_cards` | integer | Red cards received |
+| `saves` | integer | Saves (goalkeepers) |
 | `plus_minus` | integer | Plus/minus rating |
-| `player_name` | string | Player's full name |
-| *...plus detailed match performance metrics* |
-
-</details>
 
 ---
 
-## 🌐 Public Widget Endpoints
+## Public Widget Endpoints
 
-These endpoints are accessible without authentication for widget integration:
+These endpoints are accessible without authentication for widget integration.
 
-### Get Season Officials (Public)
-```http
-GET /public/seasons/{seasonId}/officials
-```
-**CORS:** Allows all origins (`*`)
+### Get Current Fixture Clocks
 
-### Get Current Fixture Clocks (Public)
-```http
-GET /clock/{fixtureId}
-```
+{% swagger method="get" path="/clock/{fixtureId}" baseUrl="https://api.tms.hockey" summary="Get fixture clocks (Public)" %}
+{% swagger-description %}
+Public endpoint for getting current clock states for a fixture. Perfect for live score widgets.
+{% endswagger-description %}
 
-Get current clock states for a fixture (live match data).
+{% swagger-parameter in="path" name="fixtureId" type="uuid" required="true" %}
+Fixture identifier
+{% endswagger-parameter %}
 
-**Response:**
+{% swagger-response status="200: OK" description="Current clock states" %}
 ```json
 {
   "fixture_id": "uuid",
-  "server_time": "2024-01-15T14:30:00Z",
+  "server_time": "2024-03-15T19:30:00Z",
   "clocks": [
     {
       "type": "main",
@@ -496,10 +706,69 @@ Get current clock states for a fixture (live match data).
   "has_live_data": true
 }
 ```
+{% endswagger-response %}
+{% endswagger %}
+
+**CORS:** Allows all origins (`*`) - Perfect for embedding in websites
 
 ---
 
-## ❌ Error Responses
+## Organizations & Entities
+
+### Get All Organizations
+
+{% swagger method="get" path="/organizations" baseUrl="https://api.tms.hockey" summary="Get all organizations" %}
+{% swagger-description %}
+Retrieves all organizations in the system with their contact details and metadata.
+{% endswagger-description %}
+
+{% swagger-response status="200: OK" description="List of organizations" %}
+```json
+[
+  {
+    "organization_id": "uuid",
+    "organization_name": "National Hockey Federation",
+    "organization_short_name": "NHF",
+    "organization_type": "federation",
+    "contact_email": "info@nhf.com",
+    "website": "https://nhf.com",
+    "status": "active"
+  }
+]
+```
+{% endswagger-response %}
+{% endswagger %}
+
+### Get All Entities
+
+{% swagger method="get" path="/entities" baseUrl="https://api.tms.hockey" summary="Get all entities" %}
+{% swagger-description %}
+Retrieves all entities (teams, clubs) with their associated groups and detailed information.
+{% endswagger-description %}
+
+{% swagger-response status="200: OK" description="List of entities with groups" %}
+```json
+[
+  {
+    "entity_id": "uuid",
+    "entity_name_en": "Lightning Bolts",
+    "entity_code_latin": "LB",
+    "entity_type": "team",
+    "entity_status": "active",
+    "entity_group_name": "Senior Men",
+    "founded_year": 2015,
+    "entity_logo_url": "https://example.com/logo.png"
+  }
+]
+```
+{% endswagger-response %}
+{% endswagger %}
+
+**Response Fields:** 50 total fields with comprehensive entity and group information
+
+---
+
+## Error Responses
 
 All endpoints return consistent error responses:
 
@@ -513,37 +782,22 @@ All endpoints return consistent error responses:
 **HTTP Status Codes:**
 - `200` - Success
 - `401` - Authentication required
-- `403` - Access denied / Admin required
+- `403` - Access denied / Admin required  
 - `404` - Resource not found
 - `500` - Internal server error
 
 ---
 
-## 🏒 Hockey Terminology
+## Hockey Terminology
 
-**Key Terms Used in Statistics:**
-
-- **Challenges**: Hockey-specific scoring opportunities
-- **Field Goals**: Goals scored during regular play (not penalty situations)
-- **Penalty Corners**: Set pieces awarded for defensive infractions  
-- **Penalty Strokes**: Direct scoring opportunities (similar to penalty kicks)
-- **Circle Penetrations**: Entries into the scoring circle
-- **Long Corners**: Corner kicks awarded for certain infractions
-- **Shootout**: Penalty stroke competition to decide tied matches
-- **Bib**: Jersey/uniform number
-- **Plus/Minus**: Player rating system (+/- when on field during goals)
-
----
-
-## 🔧 Technical Notes
-
-1. **UUID fields** are used throughout for primary keys
-2. **JSON metadata fields** provide extensibility
-3. **Query parameters** supported on most endpoints for filtering/sorting
-4. **Timestamps** stored with/without timezone depending on field
-5. **Real-time data** available through timeline and clock endpoints
-6. **Multi-language support** with Latin/Local naming conventions
-
----
-
-*Last updated: January 2024*
+| Term | Description |
+| --- | --- |
+| **Challenges** | Hockey-specific scoring opportunities |
+| **Field Goals** | Goals scored during regular play (not penalty situations) |
+| **Penalty Corners** | Set pieces awarded for defensive infractions |
+| **Penalty Strokes** | Direct scoring opportunities (similar to penalty kicks) |
+| **Circle Penetrations** | Entries into the scoring circle |
+| **Long Corners** | Corner kicks awarded for certain infractions |
+| **Shootout** | Penalty stroke competition to decide tied matches |
+| **Bib** | Jersey/uniform number |
+| **Plus/Minus** | Player rating system (+/- when on field during goals) |
