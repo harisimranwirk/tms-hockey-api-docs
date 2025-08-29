@@ -993,6 +993,389 @@ PostgREST returns specific error messages for invalid queries:
 
 ---
 
+# Real-Time WebSocket API
+
+The TMS Hockey platform provides real-time updates for match events and clock data through WebSocket connections. The system uses PostgreSQL LISTEN/NOTIFY for instant change detection, Redis pub/sub for message distribution, and WebSocket for client communication.
+
+**WebSocket Base URL:** `wss://ws.tms.hockey:8443`
+
+## WebSocket Endpoints
+
+| Endpoint | Description | Connection URL |
+| --- | --- | --- |
+| `/timeline` | Real-time match events (goals, cards, substitutions, etc.) | `wss://ws.tms.hockey:8443/timeline?fixture_id={fixtureId}` |
+| `/clock` | Real-time clock and score updates | `wss://ws.tms.hockey:8443/clock?fixture_id={fixtureId}` |
+
+### Connection Requirements
+
+- **Protocol:** WebSocket Secure (WSS) over SSL/TLS
+- **Port:** 8443
+- **SSL Certificate:** Let's Encrypt
+- **Authentication:** None required (fixture_id is the only parameter)
+- **CORS:** Accepts all origins (web, mobile apps, Postman)
+- **Heartbeat:** Ping/pong every 30 seconds
+- **Auto-close:** Connections close 5 seconds after fixture ends
+
+---
+
+## Timeline WebSocket Endpoint
+
+Provides real-time updates for all match events including goals, cards, substitutions, and penalty corners. Events are enriched with player/team names and images from the `fixture_timeline_all` view.
+
+### Connection
+
+```javascript
+const ws = new WebSocket('wss://ws.tms.hockey:8443/timeline?fixture_id=d7bb15e0-7e6d-11f0-aae8-a5de09f529bd');
+```
+
+### Message Flow
+
+1. **Connection Established** → Receive `connected` message
+2. **Subscription Confirmed** → Receive `status` message  
+3. **Match Events Occur** → Receive `timeline_update` messages
+4. **Fixture Ends** → Receive `fixture_ended` message
+5. **Connection Closes** → Automatic closure after 5 seconds
+
+### Message Types
+
+| Type | Description | When Sent |
+| --- | --- | --- |
+| `connected` | Initial connection confirmation | On successful WebSocket connection |
+| `status` | Subscription status | After connection established |
+| `timeline_update` | Event update (new/update/delete/shootout_refresh) | When match events occur |
+| `fixture_ended` | Match completed notification | When fixture status becomes CONFIRMED |
+| `connection_closing` | Connection terminating warning | 1 second before connection closes |
+| `pong` | Heartbeat response | In response to ping message |
+
+### Timeline Event Fields
+
+All timeline events include the following fields from the `fixture_timeline_all` view:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `event_id` | uuid | Unique event identifier |
+| `fixture_id` | uuid | Fixture identifier |
+| `organization_id` | string | Organization code (e.g., "k11s0", "HKHA") |
+| `event_time` | timestamp | When event occurred (UTC) |
+| `clock` | string | Period clock time (format: "HH:MM:SS") |
+| `period_id` | integer | Period number (1-4: Regular, 10-11: Extra Time, 12: Shootout, 13: Extra Time 4) |
+| `sequence_number` | integer | Event order within fixture |
+| `event_type` | string | Type of event (see Event Types table) |
+| `sub_type` | string | Event subtype (e.g., "awarded", "missed", "scored") |
+| `entity_id` | uuid | Team entity identifier |
+| `person_id` | uuid | Player identifier (null for team events) |
+| `play_id` | uuid | Play sequence identifier |
+| `scores` | object | Current score state (entity_id: score mapping) |
+| `success` | boolean | Whether event was successful |
+| `status` | string | Event status ("added", "updated", "deleted") |
+| `official_id` | uuid | Recording official identifier |
+| `timestamp` | timestamp | Database timestamp |
+| `deleted_at` | timestamp | Soft delete timestamp (null if not deleted) |
+| `is_deleted` | boolean | Soft delete flag |
+| `entity_name` | string | Team name |
+| `entity_code` | string | Team code (e.g., "IND", "CHN") |
+| `person_name` | string | Player name |
+| `entity_image_url` | string | Team logo URL |
+| `person_image_url` | string | Player image URL |
+| `discipline` | string | Sport discipline ("OUTDOOR", "INDOOR") |
+| `options` | object | Additional event data (varies by event type) |
+| `period_name` | string | Human-readable period ("Period 1", "Extra Time 1", "Shoot Out") |
+| `clock_display` | string | Formatted clock time |
+| `match_clock_seconds` | number | Cumulative match time in seconds |
+| `match_clock_display` | string | Cumulative match time (MM:SS format) |
+
+### Event Types
+
+| Event Type | Description | Has Person | Common Subtypes | Options Fields |
+| --- | --- | --- | --- | --- |
+| `goal` | Goal scored | Yes | null, "field", "penalty" | goalOutcome, assist_by |
+| `penaltyCorner` | Penalty corner awarded | No | null | - |
+| `penaltyStroke` | Penalty stroke | Yes | "awarded", "missed", "scored" | reason |
+| `card` | Disciplinary card | Yes | "green", "yellow", "red" | duration_minutes, offense |
+| `substitution` | Player substitution | Yes | null | player_in, player_out |
+| `timeout` | Team timeout | No | null | duration |
+| `period_start` | Period started | No | null | - |
+| `period_end` | Period ended | No | null | - |
+
+### Update Types
+
+| Update Type | Description | Additional Fields |
+| --- | --- | --- |
+| `new` | New event added | Full event object in `event` field |
+| `update` | Existing event modified | Full updated event object in `event` field |
+| `delete` | Event soft-deleted | Full event with `is_deleted=true`, includes `play_id` and `event_id` |
+| `shootout_refresh` | All shootout events refresh | Array in `events` field, may include `deleted_event`, `updated_event`, or `new_event` |
+
+### Period IDs
+
+| Period ID | Period Name | Description |
+| --- | --- | --- |
+| 0 | Full Match | Entire match statistics |
+| 1-4 | Period 1-4 | Regular periods |
+| 10 | Extra Time 1 | First extra time period |
+| 11 | Extra Time 2 | Second extra time period |
+| 12 | Shoot Out | Penalty shootout |
+| 13 | Extra Time 4 | Fourth extra time period |
+
+---
+
+## Clock WebSocket Endpoint
+
+Provides real-time clock updates, period changes, and score updates during matches.
+
+### Connection
+
+```javascript
+const ws = new WebSocket('wss://ws.tms.hockey:8443/clock?fixture_id=d7bb15e0-7e6d-11f0-aae8-a5de09f529bd');
+```
+
+### Clock Features
+
+- **Multiple Fixtures:** Can subscribe to additional fixtures using `subscribe` message
+- **Unified Lifecycle:** Closes together with timeline when fixture ends
+- **Clock Types:** Main clock, green card timers, sin bin timers
+- **Period Transitions:** Automatic updates on period changes
+
+### Clock Message Format
+
+```json
+{
+    "type": "clock_update",
+    "data": {
+        "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+        "fixture_status": "IN_PROGRESS",
+        "clocks": [{
+            "clock_type": "main",
+            "is_running": true,
+            "current_display": "18:42",
+            "current_seconds": 1122,
+            "period_id": 1,
+            "action": "running"
+        }],
+        "scores": {
+            "home_score": 2,
+            "away_score": 1
+        },
+        "fixture_ended": false
+    }
+}
+```
+
+---
+
+## Message Examples
+
+### Connection Messages
+
+#### Initial Connection (Timeline)
+```json
+{
+    "type": "connected",
+    "connection_type": "timeline",
+    "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "connection_id": 1,
+    "server_time": "2025-08-29T10:45:00.000Z",
+    "message": "Connected to timeline updates"
+}
+```
+
+#### Subscription Status
+```json
+{
+    "type": "status",
+    "message": "Subscribed to timeline updates for fixture d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "waiting_for_initial_data": true
+}
+```
+
+### Event Messages
+
+#### Goal Scored
+```json
+{
+    "type": "timeline_update",
+    "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "server_time": "2025-08-29T10:51:23.030397+00:00",
+    "update_type": "new",
+    "event": {
+        "event_id": "18833b50-84c6-11f0-af6d-855e50fcfdf0",
+        "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+        "organization_id": "k11s0",
+        "event_time": "2025-08-29T10:51:19.812000+00:00",
+        "clock": "00:11:59",
+        "period_id": 3,
+        "sequence_number": 306,
+        "event_type": "goal",
+        "sub_type": null,
+        "entity_id": "8b89fb15-4727-11ef-98a6-ffae7c73f6b4",
+        "person_id": "7ab6f714-4731-11ef-9b8b-c9c6b571658e",
+        "play_id": "18833b51-84c6-11f0-af6d-855e50fcfdf0",
+        "scores": {
+            "802671c5-4727-11ef-b7df-ffae7c73f6b4": 1,
+            "8b89fb15-4727-11ef-98a6-ffae7c73f6b4": 3
+        },
+        "success": true,
+        "status": "added",
+        "official_id": null,
+        "timestamp": "2025-08-29T10:51:15.052000+00:00",
+        "deleted_at": null,
+        "is_deleted": false,
+        "entity_name": "India",
+        "entity_code": "IND",
+        "person_name": "SINGH Harmanpreet",
+        "entity_image_url": "https://images.dc.prod.cloud.atriumsports.com/k11s0/0e644e2a1c3d46ca8d6900d6ebb0d1b4",
+        "person_image_url": "https://images.dc.prod.cloud.atriumsports.com/k11s0/afb0e4d0622846428bd64378bd3e3897",
+        "discipline": "OUTDOOR",
+        "options": {
+            "goalOutcome": "PENALTY_CORNER"
+        },
+        "period_name": "Period 3",
+        "clock_display": "00:11:59",
+        "match_clock_seconds": 1981,
+        "match_clock_display": "33:01"
+    }
+}
+```
+
+#### Soft Delete Event
+```json
+{
+    "type": "timeline_update",
+    "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "server_time": "2025-08-29T10:59:12.174634+00:00",
+    "update_type": "delete",
+    "event": {
+        "event_id": "ebcb5dd1-84c6-11f0-af6d-855e50fcfdf0",
+        "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+        "organization_id": "k11s0",
+        "event_time": "2025-08-29T10:57:14.295000+00:00",
+        "clock": "00:08:58",
+        "period_id": 3,
+        "sequence_number": 397,
+        "event_type": "goal",
+        "sub_type": null,
+        "entity_id": "802671c5-4727-11ef-b7df-ffae7c73f6b4",
+        "person_id": null,
+        "play_id": "ecb7b9a0-84c6-11f0-af6d-855e50fcfdf0",
+        "scores": {
+            "802671c5-4727-11ef-b7df-ffae7c73f6b4": 3,
+            "8b89fb15-4727-11ef-98a6-ffae7c73f6b4": 3
+        },
+        "success": true,
+        "status": "deleted",
+        "official_id": null,
+        "timestamp": "2025-08-29T10:59:10.947000+00:00",
+        "deleted_at": "2025-08-29T10:59:12.158524+00:00",
+        "is_deleted": true,
+        "entity_name": "China",
+        "entity_code": "CHN",
+        "person_name": null,
+        "entity_image_url": "https://images.dc.prod.cloud.atriumsports.com/k11s0/ced60ff2f48b427bbc73681374e59ca2",
+        "person_image_url": null,
+        "discipline": "OUTDOOR",
+        "options": {
+            "goalOutcome": "PENALTY_CORNER"
+        },
+        "period_name": "Period 3",
+        "clock_display": "00:08:58",
+        "match_clock_seconds": 2162,
+        "match_clock_display": "36:02"
+    },
+    "play_id": "ecb7b9a0-84c6-11f0-af6d-855e50fcfdf0",
+    "event_id": "ebcb5dd1-84c6-11f0-af6d-855e50fcfdf0"
+}
+```
+
+#### Penalty Stroke Awarded
+```json
+{
+    "type": "timeline_update",
+    "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "server_time": "2025-08-29T11:03:40.347271+00:00",
+    "update_type": "new",
+    "event": {
+        "event_id": "cc810051-84c7-11f0-af6d-855e50fcfdf0",
+        "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+        "organization_id": "k11s0",
+        "event_time": "2025-08-29T11:03:31.285000+00:00",
+        "clock": "00:06:38",
+        "period_id": 3,
+        "sequence_number": 449,
+        "event_type": "penaltyStroke",
+        "sub_type": "awarded",
+        "entity_id": "8b89fb15-4727-11ef-98a6-ffae7c73f6b4",
+        "person_id": "7ab6f714-4731-11ef-9b8b-c9c6b571658e",
+        "play_id": "cc810052-84c7-11f0-af6d-855e50fcfdf0",
+        "scores": {
+            "802671c5-4727-11ef-b7df-ffae7c73f6b4": 2,
+            "8b89fb15-4727-11ef-98a6-ffae7c73f6b4": 3
+        },
+        "success": null,
+        "status": "added",
+        "official_id": null,
+        "timestamp": "2025-08-29T11:01:23.835000+00:00",
+        "deleted_at": null,
+        "is_deleted": false,
+        "entity_name": "India",
+        "entity_code": "IND",
+        "person_name": "SINGH Harmanpreet",
+        "entity_image_url": "https://images.dc.prod.cloud.atriumsports.com/k11s0/0e644e2a1c3d46ca8d6900d6ebb0d1b4",
+        "person_image_url": "https://images.dc.prod.cloud.atriumsports.com/k11s0/afb0e4d0622846428bd64378bd3e3897",
+        "discipline": "OUTDOOR",
+        "options": {},
+        "period_name": "Period 3",
+        "clock_display": "00:06:38",
+        "match_clock_seconds": 2302,
+        "match_clock_display": "38:22"
+    }
+}
+```
+
+#### Fixture Ended
+```json
+{
+    "type": "fixture_ended",
+    "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "server_time": "2025-08-29T12:00:00.000Z",
+    "fixture_ended": true,
+    "message": "Fixture has ended - timeline updates stopped"
+}
+```
+---
+
+## Error Handling
+
+### WebSocket Close Codes
+
+| Code | Description | Client Action |
+| --- | --- | --- |
+| 1000 | Normal closure | No action needed |
+| 1001 | Server going away | Reconnect after delay |
+| 1008 | Policy violation (missing fixture_id) | Fix request parameters |
+| 1011 | Internal server error | Reconnect with exponential backoff |
+
+### Connection States
+
+| State | Description | Recovery |
+| --- | --- | --- |
+| CONNECTING | Establishing connection | Wait for open event |
+| OPEN | Active and receiving | Process messages normally |
+| CLOSING | Server initiated close | Prepare for reconnection |
+| CLOSED | Connection terminated | Reconnect if fixture active |
+
+### Best Practices
+
+1. **Always implement reconnection logic** with exponential backoff
+2. **Send heartbeat pings** every 30 seconds to detect stale connections
+3. **Handle all message types** including unknown types gracefully
+4. **Parse scores object** using entity IDs as keys
+5. **Check is_deleted flag** to filter soft-deleted events
+6. **Use match_clock_seconds** for accurate time tracking
+7. **Monitor fixture_ended** to stop reconnection attempts
+
+---
+
 ## Error Responses
 
 All endpoints return consistent error responses:
