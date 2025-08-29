@@ -1,3 +1,5 @@
+Here's the complete refactored README file with all the new endpoints added while preserving all existing documentation:
+
 # TMS Hockey API Documentation - Complete Field Reference
 
 **Base URL:** `https://api.tms.hockey`
@@ -181,6 +183,13 @@ PostgREST returns specific error messages for invalid queries:
 
 **Response:** `{"ok": true}` - Sets secure session cookie (`session_id`) valid for 4 hours.
 
+#### Livescores-Specific Login
+`POST /login-livescores`
+
+**Description:** Dedicated login endpoint for livescores.hockey domain
+**Domain Restriction:** Only accepts requests from livescores.hockey origins
+**Response:** Same as `/login` - sets secure session cookie with 4-hour validity
+
 ### Mobile App Authentication
 
 **Endpoints:**
@@ -188,11 +197,23 @@ PostgREST returns specific error messages for invalid queries:
 - `POST /auth/refresh` - Refresh access token  
 - `POST /auth/logout` - Mobile logout
 
+**Mobile Login Request:**
+```json
+{
+  "clientId": "tms-hockey-mobile",
+  "clientSecret": "your-client-secret"
+}
+```
+
 **Mobile Response Fields:**
 - `accessToken` (string) - Access token for API calls
 - `refreshToken` (string) - Token for refreshing access
 - `expiresAt` (number) - Expiration timestamp
 - `tokenType` (string) - Always "Bearer"
+
+**Token Storage:** Redis-based with automatic expiration
+- Access Token: 24-hour TTL
+- Refresh Token: 30-day TTL
 
 ### Direct JWT Authentication
 
@@ -403,6 +424,18 @@ PostgREST returns specific error messages for invalid queries:
 **Data Source:** RPC function `get_player_stats_by_person_id`
 
 *Note: This endpoint uses a stored procedure. Response schema varies based on function implementation.*
+
+### Get Player Aggregate Statistics
+`GET /persons/{person_id}/aggregate-stats`
+
+**Data Source:** RPC function `get_player_aggregate_stats`
+
+**Description:** Returns total career statistics for a player across all seasons
+
+**Query Parameters:**
+- `p_person_id` (uuid) - Player's unique identifier
+
+*Note: Response schema varies based on function implementation*
 
 ### Get Person Roles
 `GET /person_roles/{person_id}`
@@ -805,6 +838,10 @@ PostgREST returns specific error messages for invalid queries:
 
 **Database View:** `fixture_timeline`
 
+**Description:** Returns timeline events for a specific fixture (REST endpoint, not WebSocket)
+
+**Default Sort:** `period_id.asc,event_time.asc,sequence_number.asc`
+
 **Response Fields (28 total):**
 
 | Field | Type | Nullable | Description |
@@ -963,6 +1000,26 @@ PostgREST returns specific error messages for invalid queries:
 
 ## Public Widget Endpoints
 
+### Get All Seasons (Public)
+`GET /public/seasons`
+
+**Database View:** `seasons`
+
+**CORS:** Allows all origins (`*`)
+
+**Fixed Filter:** `organization_id=eq.k11s0` (hardcoded for permissions app)
+
+*Returns same fields as protected `/seasons` endpoint*
+
+### Get Season Teams (Public)
+`GET /public/seasons/{seasonId}/teams`
+
+**Database View:** `v_season_teams_with_entities`
+
+**CORS:** Allows all origins (`*`)
+
+*Returns same 19 fields as protected endpoint*
+
 ### Get Season Officials (Public)
 `GET /public/seasons/{seasonId}/officials`
 
@@ -990,6 +1047,8 @@ PostgREST returns specific error messages for invalid queries:
 - `current_display` (character varying) - Human-readable time display
 - `current_seconds` (numeric) - Current time in seconds
 - `last_update_time` (timestamp) - Last clock update
+
+**Note:** Validates UUID format before querying database.
 
 ---
 
@@ -1111,7 +1170,7 @@ All timeline events include the following fields from the `fixture_timeline_all`
 | Period ID | Period Name | Description |
 | --- | --- | --- |
 | 0 | Full Match | Entire match statistics |
-| 1-4 | Period 1-4 | Regular periods |
+| 1-4 | Period 1-4 | Regular periods (20 minutes each by default) |
 | 10 | Extra Time 1 | First extra time period |
 | 11 | Extra Time 2 | Second extra time period |
 | 12 | Shoot Out | Penalty shootout |
@@ -1342,6 +1401,230 @@ const ws = new WebSocket('wss://ws.tms.hockey:8443/clock?fixture_id=d7bb15e0-7e6
     "message": "Fixture has ended - timeline updates stopped"
 }
 ```
+
+---
+
+## Client Implementation
+
+### JavaScript/Browser
+
+```javascript
+class TimelineConnection {
+    constructor(fixtureId) {
+        this.fixtureId = fixtureId;
+        this.ws = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectDelay = [1000, 2000, 4000, 8000, 16000];
+    }
+
+    connect() {
+        const url = `wss://ws.tms.hockey:8443/timeline?fixture_id=${this.fixtureId}`;
+        this.ws = new WebSocket(url);
+
+        this.ws.onopen = () => {
+            console.log('Connected to timeline');
+            this.reconnectAttempts = 0;
+            this.startHeartbeat();
+        };
+
+        this.ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.handleMessage(data);
+        };
+
+        this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        this.ws.onclose = (event) => {
+            console.log(`Connection closed: ${event.code} - ${event.reason}`);
+            this.stopHeartbeat();
+            
+            if (event.code !== 1000) { // Not normal closure
+                this.reconnect();
+            }
+        };
+    }
+
+    handleMessage(data) {
+        switch(data.type) {
+            case 'connected':
+                console.log('Connection confirmed:', data);
+                break;
+            case 'timeline_update':
+                this.processTimelineUpdate(data);
+                break;
+            case 'fixture_ended':
+                console.log('Fixture ended');
+                this.close();
+                break;
+            case 'pong':
+                // Heartbeat response received
+                break;
+        }
+    }
+
+    processTimelineUpdate(data) {
+        const { update_type, event } = data;
+        
+        switch(update_type) {
+            case 'new':
+                console.log(`New ${event.event_type} event:`, event);
+                break;
+            case 'update':
+                console.log(`Updated event ${event.event_id}`);
+                break;
+            case 'delete':
+                console.log(`Deleted event ${event.event_id}`);
+                break;
+            case 'shootout_refresh':
+                console.log(`Shootout refresh with ${data.events?.length} events`);
+                break;
+        }
+    }
+
+    startHeartbeat() {
+        this.heartbeatInterval = setInterval(() => {
+            if (this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000); // Every 30 seconds
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+        }
+    }
+
+    reconnect() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            const delay = this.reconnectDelay[this.reconnectAttempts] || 16000;
+            console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1})`);
+            
+            setTimeout(() => {
+                this.reconnectAttempts++;
+                this.connect();
+            }, delay);
+        }
+    }
+
+    close() {
+        this.stopHeartbeat();
+        if (this.ws) {
+            this.ws.close(1000, 'Client closing');
+        }
+    }
+}
+
+// Usage
+const timeline = new TimelineConnection('d7bb15e0-7e6d-11f0-aae8-a5de09f529bd');
+timeline.connect();
+```
+
+### Testing with Postman
+
+1. **New Request:** Create new WebSocket Request in Postman
+2. **URL:** `wss://ws.tms.hockey:8443/timeline?fixture_id=YOUR_FIXTURE_ID`
+3. **Connect:** Click Connect button
+4. **Send Ping:** Send `{"type": "ping"}` to test connection
+5. **Monitor:** Watch Messages tab for incoming events
+
+### Testing with cURL
+
+```bash
+# Test WebSocket handshake
+curl -i -N \
+  -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==" \
+  -H "Sec-WebSocket-Version: 13" \
+  https://ws.tms.hockey:8443/timeline?fixture_id=d7bb15e0-7e6d-11f0-aae8-a5de09f529bd
+```
+
+---
+
+## Architecture & Data Flow
+
+### System Components
+
+1. **PostgreSQL Database**
+   - `fixture_playbyplay_events` table stores raw events
+   - `fixture_timeline_all` view enriches with names/images
+   - Trigger `timeline_change_trigger` detects changes
+   - LISTEN/NOTIFY on `timeline_events` channel
+
+2. **Timeline Publisher (Python)**
+   - Listens for PostgreSQL notifications
+   - Queries enriched data from view
+   - Publishes to Redis channels
+   - Handles 800-1000 concurrent users per fixture
+   - Caches fixture status (60-second TTL)
+
+3. **WebSocket Server (Node.js)**
+   - Subscribes to Redis pub/sub channels
+   - Manages WebSocket connections
+   - Broadcasts to connected clients
+   - Unified lifecycle management for clock/timeline
+
+### Data Flow Sequence
+
+```
+Event Occurs → Streaming API → Database Insert → PostgreSQL Trigger
+    ↓
+NOTIFY timeline_events → Timeline Publisher → Query View
+    ↓
+Publish to Redis → WebSocket Server → Broadcast to Clients
+```
+
+### Redis Channels
+
+- **Timeline:** `hockey:timeline:updates:{fixture_id}`
+- **Timeline All:** `hockey:timeline:updates:all`
+- **Clock:** `hockey:clock:updates:{fixture_id}`
+- **Clock All:** `hockey:clock:updates:all`
+
+---
+
+## Performance & Monitoring
+
+### Capacity Limits
+
+| Metric | Value | Description |
+| --- | --- | --- |
+| Concurrent connections per fixture | 800-1000 | Maximum WebSocket connections |
+| Active fixtures | 20-50 | Simultaneous matches supported |
+| Message latency | < 100ms | Database change to client delivery |
+| Database queries | 1 per event | Only on event occurrence |
+| Cache hit rate | ~70% | Fixture status cache effectiveness |
+| Memory usage | < 100MB | Per publisher instance |
+| CPU usage | < 5% | Under normal load |
+
+### Monitoring Endpoints
+
+The WebSocket server logs statistics every 60 seconds:
+- Active connections per endpoint
+- Active fixtures being monitored
+- Total messages sent
+- Connection/disconnection events
+
+### Service Management
+
+```bash
+# Check service status
+./service_management.sh status
+
+# View timeline logs
+./service_management.sh logs timeline 100
+
+# Follow timeline logs in real-time
+./service_management.sh follow timeline
+
+# Test WebSocket connection
+./service_management.sh test timeline d7bb15e0-7e6d-11f0-aae8-a5de09f529bd
+```
+
 ---
 
 ## Error Handling
@@ -1412,8 +1695,9 @@ All endpoints return consistent error responses:
    - `numeric` - Decimal numbers for percentages/rates
 
 4. **Multilingual Support**: Many fields have `_latin` and `_local` variants
-5. **Security**: Group-based access control in RPC functions
+5. **Security**: Group-based access control in RPC functions, Redis-based mobile token storage
 6. **Query Parameters**: Most endpoints support PostgREST query parameters for filtering, sorting, and field selection
+7. **Direct Browser Access Protection**: API endpoints are protected from direct browser access, returning HTML error pages for browser requests
 
 ---
 
@@ -1433,4 +1717,4 @@ All endpoints return consistent error responses:
 
 ---
 
-*Complete field reference for all 30 TMS Hockey API endpoints with exact database field names, types, and descriptions.*
+*Complete field reference for all TMS Hockey API endpoints with exact database field names, types, and descriptions. Includes real-time WebSocket support for live match updates.*
