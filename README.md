@@ -464,6 +464,129 @@ PostgREST returns specific error messages for invalid queries:
 
 ---
 
+### Get Player Aggregate Statistics
+`GET /persons/{person_id}/aggregate-stats`
+
+**Data Source:** RPC function `get_player_aggregate_stats`
+
+**Description:** Returns comprehensive career statistics for a player across all teams and seasons they've played for.
+
+**Query Parameters:**
+- `p_person_id` (uuid) - Player's unique identifier
+
+**Response Structure:**
+
+The response is an array containing a single object with aggregated statistics:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `total_matches` | integer | Total number of matches played across all teams |
+| `total_goals` | integer | Total goals scored |
+| `total_field_goals` | integer | Total field goals scored |
+| `total_penalty_corners` | integer | Total penalty corners scored |
+| `total_penalty_strokes` | integer | Total penalty strokes scored |
+| `total_wins` | integer | Total wins |
+| `total_losses` | integer | Total losses |
+| `total_draws` | integer | Total draws |
+| `total_green_cards` | integer | Total green cards received |
+| `total_yellow_cards` | integer | Total yellow cards received |
+| `total_red_cards` | integer | Total red cards received |
+| `total_teams` | integer | Number of distinct teams played for |
+| `teams_list` | array | Summary list of teams |
+| `teams_detailed` | object | Detailed statistics by team entity ID |
+
+**Teams List Structure:**
+Each item in `teams_list` contains:
+- `team_code` (string) - Team code
+- `team_name` (string) - Team name
+- `team_logo_url` (string) - URL to team logo
+- `team_entity_id` (uuid) - Unique team entity identifier
+
+**Teams Detailed Structure:**
+Object keyed by `team_entity_id`, each containing:
+- `gender` (string) - Gender category (MALE/FEMALE)
+- `age_group` (string) - Age group (SENIOR, UNDER_21, etc.)
+- `discipline` (string) - Sport discipline (OUTDOOR/INDOOR)
+- `organization_id` (string) - Organization identifier
+- `team_code` (string) - Team code
+- `team_name` (string) - Team name
+- `team_logo_url` (string) - URL to team logo
+- `team_entity_id` (uuid) - Team entity identifier
+- `date_range` (object) - First and last match dates
+  - `first_match` (timestamp) - Date of first match
+  - `last_match` (timestamp) - Date of most recent match
+- `seasons` (array) - List of seasons played
+  - `season_id` (uuid) - Season identifier
+  - `season_name` (string) - Season name
+  - `season_start` (date) - Season start date
+  - `season_end` (date) - Season end date
+- `statistics` (object) - Aggregated statistics for this team
+  - `matches` (integer) - Total matches
+  - `goals` (integer) - Total goals
+  - `field_goals` (integer) - Field goals
+  - `penalty_corners` (integer) - Penalty corners scored
+  - `penalty_strokes` (integer) - Penalty strokes scored
+  - `wins` (integer) - Matches won
+  - `losses` (integer) - Matches lost
+  - `draws` (integer) - Matches drawn
+  - `win_percentage` (decimal) - Win percentage
+
+**Example Response:**
+```json
+[
+    {
+        "total_matches": 282,
+        "total_goals": 235,
+        "total_field_goals": 5,
+        "total_penalty_corners": 202,
+        "total_penalty_strokes": 28,
+        "total_wins": 164,
+        "total_losses": 74,
+        "total_draws": 44,
+        "total_green_cards": 10,
+        "total_yellow_cards": 6,
+        "total_red_cards": 0,
+        "total_teams": 2,
+        "teams_list": [
+            {
+                "team_code": "IND",
+                "team_name": "India",
+                "team_logo_url": "https://images.dc.prod.cloud.atriumsports.com/...",
+                "team_entity_id": "8b89fb15-4727-11ef-98a6-ffae7c73f6b4"
+            }
+        ],
+        "teams_detailed": {
+            "8b89fb15-4727-11ef-98a6-ffae7c73f6b4": {
+                "gender": "MALE",
+                "age_group": "SENIOR",
+                "discipline": "OUTDOOR",
+                "organization_id": "k11s0",
+                "team_code": "IND",
+                "team_name": "India",
+                "team_logo_url": "https://images.dc.prod.cloud.atriumsports.com/...",
+                "team_entity_id": "8b89fb15-4727-11ef-98a6-ffae7c73f6b4",
+                "date_range": {
+                    "first_match": "2015-05-03T19:00:00",
+                    "last_match": "2025-08-29T15:00:00"
+                },
+                "seasons": [...],
+                "statistics": {
+                    "matches": 245,
+                    "goals": 205,
+                    "field_goals": 4,
+                    "penalty_corners": 177,
+                    "penalty_strokes": 24,
+                    "wins": 137,
+                    "losses": 66,
+                    "draws": 42,
+                    "win_percentage": 55.9
+                }
+            }
+        }
+    }
+]
+
+---
 ## Statistics
 
 ### Get Player Season Statistics
