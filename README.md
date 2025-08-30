@@ -462,8 +462,6 @@ PostgREST returns specific error messages for invalid queries:
 | `gender` | character varying | YES | Gender category |
 | `age_group` | character varying | YES | Age group |
 
----
-
 ### Get Player Aggregate Statistics
 `GET /persons/{person_id}/aggregate-stats`
 
@@ -587,6 +585,7 @@ Object keyed by `team_entity_id`, each containing:
 ]
 
 ---
+
 ## Statistics
 
 ### Get Player Season Statistics
