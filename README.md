@@ -583,9 +583,7 @@ Object keyed by `team_entity_id`, each containing:
         }
     }
 ]
-
 ---
-
 ## Statistics
 
 ### Get Player Season Statistics
