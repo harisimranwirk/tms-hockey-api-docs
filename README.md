@@ -1078,6 +1078,101 @@ All endpoints return consistent error responses:
 - `500` - Internal server error
 
 ---
+## Real-Time WebSocket API
+
+The TMS Hockey platform provides real-time updates for match events and clock data through WebSocket connections.
+
+**WebSocket Base URL:** `wss://ws.tms.hockey:8443`
+
+### Timeline WebSocket
+
+`wss://ws.tms.hockey:8443/timeline?fixture_id={fixtureId}`
+
+Provides real-time match events including goals, cards, substitutions, and penalty corners.
+
+**Connection Example**
+```javascript
+const ws = new WebSocket('wss://ws.tms.hockey:8443/timeline?fixture_id=d7bb15e0-7e6d-11f0-aae8-a5de09f529bd');
+```
+
+**Message Types**
+| Type | Description |
+| --- | --- |
+| `connected` | Initial connection confirmation |
+| `timeline_update` | Event updates (new/update/delete) |
+| `fixture_ended` | Match completed |
+
+**Event Types**
+| Event | Description |
+| --- | --- |
+| `goal` | Goal scored |
+| `penaltyCorner` | Penalty corner awarded |
+| `penaltyStroke` | Penalty stroke |
+| `card` | Green/Yellow/Red card |
+| `substitution` | Player substitution |
+
+**Example Event Message**
+```json
+{
+    "type": "timeline_update",
+    "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+    "update_type": "new",
+    "event": {
+        "event_id": "18833b50-84c6-11f0-af6d-855e50fcfdf0",
+        "event_type": "goal",
+        "entity_name": "India",
+        "person_name": "SINGH Harmanpreet",
+        "scores": {
+            "802671c5-4727-11ef-b7df-ffae7c73f6b4": 1,
+            "8b89fb15-4727-11ef-98a6-ffae7c73f6b4": 3
+        },
+        "match_clock_seconds": 1981,
+        "match_clock_display": "33:01"
+    }
+}
+```
+
+### Clock WebSocket
+
+`wss://ws.tms.hockey:8443/clock?fixture_id={fixtureId}`
+
+Provides real-time clock updates, period changes, and score updates.
+
+**Connection Example**
+```javascript
+const ws = new WebSocket('wss://ws.tms.hockey:8443/clock?fixture_id=d7bb15e0-7e6d-11f0-aae8-a5de09f529bd');
+```
+
+**Message Format**
+```json
+{
+    "type": "clock_update",
+    "data": {
+        "fixture_id": "d7bb15e0-7e6d-11f0-aae8-a5de09f529bd",
+        "fixture_status": "IN_PROGRESS",
+        "clocks": [{
+            "clock_type": "main",
+            "is_running": true,
+            "current_display": "18:42",
+            "current_seconds": 1122
+        }],
+        "scores": {
+            "home_score": 2,
+            "away_score": 1
+        }
+    }
+}
+```
+
+**Connection Management**
+
+**Requirements**
+- **Protocol:** WebSocket Secure (WSS)
+- **Port:** 8443
+- **Authentication:** None (fixture_id only)
+- **Heartbeat:** Send ping every 30 seconds
+
+---
 
 ## Technical Notes
 
