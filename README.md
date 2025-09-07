@@ -1080,6 +1080,235 @@ GET /persons/topscorers?min_matches=10&order=total_goals.desc
 | `last_match_date` | timestamp without time zone | YES | Date of player's most recent match for this entity |
 | `total_matches_played` | bigint | YES | Total number of matches played for this entity |
 
+### Get Entity Players Year-wise Statistics
+`GET /entities/{entity_id}/players/yearwise`
+
+**Database View:** `v_entity_players_by_year`
+
+**Description:** Returns players' statistics broken down by year for the specified entity. Each player will have multiple rows if they played across multiple years, showing their performance for each specific year.
+
+**Path Parameters:**
+- `entity_id` (uuid) - Team entity identifier
+
+**Query Parameters:**
+- `year` (integer) - Filter by specific year (e.g., `2024`)
+- `min_goals` (integer) - Minimum goals scored in that year
+- `min_matches` (integer) - Minimum matches played in that year
+- `only_scorers` (boolean) - Show only players who scored in that year
+- `only_non_scorers` (boolean) - Show only players who didn't score in that year
+- `discipline` (string) - Filter by discipline: `OUTDOOR`, `INDOOR`
+- `gender` (string) - Filter by gender: `MALE`, `FEMALE`
+- `age_group` (string) - Filter by age group: `SENIOR`, `UNDER_21`, etc.
+- `sort_by` (string) - Sort order options (see below)
+- `limit` (integer) - Maximum number of results
+
+**Sorting Options:**
+
+| Value | Description |
+| --- | --- |
+| `goals` | Sort by goals scored (descending), then by year - default |
+| `year` | Sort by year (descending), then by goals |
+| `matches` | Sort by matches played (descending) |
+| `name` | Sort by player name (ascending), then by year |
+| `rank` | Sort by team rank (ascending), then by year |
+
+**Response Fields (30 total):**
+
+| Field | Type | Nullable | Description |
+| --- | --- | --- | --- |
+| `person_id` | uuid | YES | Player's unique identifier |
+| `entity_id` | uuid | YES | Team entity identifier |
+| `year` | integer | YES | Year of statistics |
+| `player_name` | character varying | YES | Player's full name (Latin script) |
+| `player_name_local` | character varying | YES | Player's full name (local script) |
+| `player_photo` | text | YES | URL to player's profile photo |
+| `discipline` | character varying | YES | Sport discipline |
+| `gender` | character varying | YES | Gender category |
+| `age_group` | character varying | YES | Age group category |
+| `organization_id` | character varying | YES | Organization identifier |
+| `team_code` | character varying | YES | Team code |
+| `team_name` | character varying | YES | Team name |
+| `team_flag` | text | YES | URL to team flag image |
+| `team_logo` | text | YES | URL to team logo |
+| `goals_for_entity` | bigint | YES | Goals scored in this year |
+| `field_goals_for_entity` | bigint | YES | Field goals scored in this year |
+| `penalty_corners_for_entity` | bigint | YES | Penalty corners scored in this year |
+| `penalty_strokes_for_entity` | bigint | YES | Penalty strokes scored in this year |
+| `challenges_for_entity` | bigint | YES | Challenges scored in this year |
+| `matches_for_entity` | bigint | YES | Matches played in this year |
+| `goals_per_match` | numeric | YES | Average goals per match in this year |
+| `green_cards_for_entity` | bigint | YES | Green cards received in this year |
+| `yellow_cards_for_entity` | bigint | YES | Yellow cards received in this year |
+| `red_cards_for_entity` | bigint | YES | Red cards received in this year |
+| `debut_date` | timestamp | YES | First match in this year |
+| `last_match_date` | timestamp | YES | Last match in this year |
+| `has_scored` | boolean | YES | Whether player scored in this year |
+| `rank_in_team` | integer | YES | Player's rank within team for this year |
+
+**Example Requests:**
+```
+# All players' statistics for 2024
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players/yearwise?year=2024
+
+# All years statistics for all players
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players/yearwise
+
+# Players who scored at least 5 goals in any year
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players/yearwise?min_goals=5
+
+# Sort by year to see progression
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players/yearwise?sort_by=year
+
+# Compare a player's performance across years (filter by person_id on frontend)
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players/yearwise?sort_by=year
+```
+
+**Response Example:**
+```json
+[
+  {
+    "person_id": "123e4567-e89b-12d3-a456-426614174000",
+    "entity_id": "6c860094-88a3-11f0-894c-6b26ff2d5545",
+    "year": 2024,
+    "player_name": "John Smith",
+    "goals_for_entity": 15,
+    "matches_for_entity": 20,
+    "goals_per_match": 0.75,
+    "rank_in_team": 2
+  },
+  {
+    "person_id": "123e4567-e89b-12d3-a456-426614174000",  // Same player
+    "entity_id": "6c860094-88a3-11f0-894c-6b26ff2d5545",
+    "year": 2023,  // Different year
+    "player_name": "John Smith",
+    "goals_for_entity": 12,
+    "matches_for_entity": 18,
+    "goals_per_match": 0.67,
+    "rank_in_team": 3
+  }
+]
+```
+### Get Entity Players All-Time Statistics
+`GET /entities/{entity_id}/players`
+
+**Database View:** `v_entity_all_players_stats`
+
+**Description:** Returns ALL players who have participated in at least one match for the specified entity, with their complete all-time aggregated statistics. This includes both scorers and non-scorers with their total career stats for this team.
+
+**Path Parameters:**
+- `entity_id` (uuid) - Team entity identifier
+
+**Query Parameters:**
+- `min_goals` (integer) - Minimum total goals scored (0 includes non-scorers)
+- `min_matches` (integer) - Minimum total matches played
+- `only_scorers` (boolean) - Show only players who have scored
+- `only_non_scorers` (boolean) - Show only players who haven't scored
+- `discipline` (string) - Filter by discipline: `OUTDOOR`, `INDOOR`
+- `gender` (string) - Filter by gender: `MALE`, `FEMALE`
+- `age_group` (string) - Filter by age group: `SENIOR`, `UNDER_21`, etc.
+- `sort_by` (string) - Sort order options (see below)
+- `limit` (integer) - Maximum number of results
+
+**Note:** This endpoint shows all-time career statistics. Year filtering is not available. Use `/entities/{entity_id}/players/yearwise` for year-specific data.
+
+**Sorting Options:**
+
+| Value | Description |
+| --- | --- |
+| `goals` | Sort by total goals scored (descending) - default |
+| `matches` | Sort by total matches played (descending) |
+| `name` | Sort by player name (ascending) |
+| `rank` | Sort by team rank (ascending) |
+| `debut` | Sort by debut date (ascending) |
+| `recent` | Sort by last match date (descending) |
+
+**Response Fields (28 total):**
+
+| Field | Type | Nullable | Description |
+| --- | --- | --- | --- |
+| `person_id` | uuid | YES | Player's unique identifier |
+| `entity_id` | uuid | YES | Team entity identifier |
+| `player_name` | character varying | YES | Player's full name (Latin script) |
+| `player_name_local` | character varying | YES | Player's full name (local script) |
+| `player_photo` | text | YES | URL to player's profile photo |
+| `discipline` | character varying | YES | Sport discipline |
+| `gender` | character varying | YES | Gender category |
+| `age_group` | character varying | YES | Age group category |
+| `organization_id` | character varying | YES | Organization identifier |
+| `team_code` | character varying | YES | Team code |
+| `team_name` | character varying | YES | Team name |
+| `team_flag` | text | YES | URL to team flag image |
+| `team_logo` | text | YES | URL to team logo |
+| `goals_for_entity` | bigint | YES | Total career goals for this team |
+| `field_goals_for_entity` | bigint | YES | Total field goals |
+| `penalty_corners_for_entity` | bigint | YES | Total penalty corners scored |
+| `penalty_strokes_for_entity` | bigint | YES | Total penalty strokes scored |
+| `challenges_for_entity` | bigint | YES | Total challenges scored |
+| `matches_for_entity` | bigint | YES | Total matches played |
+| `goals_per_match` | numeric | YES | Career goals per match average |
+| `green_cards_for_entity` | bigint | YES | Total green cards received |
+| `yellow_cards_for_entity` | bigint | YES | Total yellow cards received |
+| `red_cards_for_entity` | bigint | YES | Total red cards received |
+| `debut_date` | timestamp | YES | First match for this entity |
+| `last_match_date` | timestamp | YES | Most recent match for this entity |
+| `years_played` | integer | YES | Number of distinct years played |
+| `years_active` | text | YES | Comma-separated list of years (e.g., "2021,2022,2023,2024") |
+| `has_scored` | boolean | YES | Whether player has ever scored |
+| `rank_in_team` | integer | YES | Player's all-time rank within team by goals |
+
+**Example Requests:**
+```
+# All players who ever played for the team (all-time stats)
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players
+
+# Players with at least 50 career matches
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players?min_matches=50
+
+# Only players who have scored (excludes non-scoring defenders/goalkeepers)
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players?only_scorers=true
+
+# Only non-scorers (defenders/goalkeepers who never scored)
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players?only_non_scorers=true
+
+# Sort by debut date (longest-serving players first)
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players?sort_by=debut
+
+# Top 20 all-time scorers
+GET /entities/6c860094-88a3-11f0-894c-6b26ff2d5545/players?sort_by=goals&limit=20
+```
+
+**Response Example:**
+```json
+[
+  {
+    "person_id": "123e4567-e89b-12d3-a456-426614174000",
+    "entity_id": "6c860094-88a3-11f0-894c-6b26ff2d5545",
+    "player_name": "John Smith",
+    "player_photo": "https://images.example.com/player123.jpg",
+    "team_code": "TBL",
+    "team_name": "Thunder Bolts",
+    "goals_for_entity": 127,
+    "matches_for_entity": 156,
+    "goals_per_match": 0.81,
+    "debut_date": "2020-03-15T14:00:00",
+    "last_match_date": "2024-11-20T16:30:00",
+    "years_played": 5,
+    "years_active": "2020,2021,2022,2023,2024",
+    "has_scored": true,
+    "rank_in_team": 1
+  },
+  {
+    "person_id": "987e6543-e89b-12d3-a456-426614174111",
+    "entity_id": "6c860094-88a3-11f0-894c-6b26ff2d5545",
+    "player_name": "Jane Doe",
+    "goals_for_entity": 0,
+    "matches_for_entity": 89,
+    "goals_per_match": 0.00,
+    "has_scored": false,
+    "rank_in_team": 45
+  }
+]
+```
 ---
 
 ## Public Widget Endpoints
