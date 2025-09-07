@@ -790,6 +790,62 @@ Object keyed by `team_entity_id`, each containing:
 
 *Plus additional fields for penalty actions, circle penetrations, and match context.*
 
+### Get Top Scorers
+`GET /persons/topscorers`
+
+**Database View:** `v_top_scorers_by_year`
+
+**Description:** Returns the top goal scorers across all teams and competitions, with support for filtering by year, competition parameters, and ranking limits.
+
+**Query Parameters:**
+- `year` (integer) - Filter by specific year (e.g., `2024`)
+- `discipline` (string) - Sport discipline: `OUTDOOR`, `INDOOR`
+- `gender` (string) - Gender category: `MALE`, `FEMALE`
+- `age_group` (string) - Age group: `SENIOR`, `UNDER_21`, etc.
+- `organization_id` (string) - Organization identifier
+- `min_matches` (integer) - Minimum matches played
+- `limit` (integer) - Maximum rank to include (top N players)
+
+**Response Fields (24 total):**
+
+| Field | Type | Nullable | Description |
+| --- | --- | --- | --- |
+| `person_id` | uuid | YES | Player's unique identifier |
+| `year` | integer | YES | Year of statistics |
+| `player_name` | character varying | YES | Player's full name (Latin script) |
+| `player_name_local` | character varying | YES | Player's full name (local script) |
+| `player_photo` | text | YES | URL to player's profile photo |
+| `discipline` | character varying | YES | Sport discipline |
+| `gender` | character varying | YES | Gender category |
+| `age_group` | character varying | YES | Age group category |
+| `organization_id` | character varying | YES | Organization identifier |
+| `entity_ids` | uuid[] | YES | Array of team entity IDs player represented |
+| `total_goals` | bigint | YES | Total goals scored |
+| `total_field_goals` | bigint | YES | Field goals scored |
+| `total_penalty_corners` | bigint | YES | Penalty corners converted |
+| `total_penalty_strokes` | bigint | YES | Penalty strokes scored |
+| `total_challenges` | bigint | YES | Challenges scored |
+| `matches_played` | bigint | YES | Total matches played |
+| `teams_represented` | integer | YES | Number of different teams played for |
+| `teams` | jsonb | YES | Array of team details with codes, names, flags, logos |
+| `goals_per_match` | numeric | YES | Average goals per match |
+| `total_green_cards` | bigint | YES | Total green cards received |
+| `total_yellow_cards` | bigint | YES | Total yellow cards received |
+| `total_red_cards` | bigint | YES | Total red cards received |
+| `rank_in_category` | integer | YES | Player's rank within their category |
+
+**Example Requests:**
+```
+# Top 10 scorers in 2024
+GET /persons/topscorers?year=2024&limit=10
+
+# Top female senior outdoor scorers
+GET /persons/topscorers?gender=FEMALE&age_group=SENIOR&discipline=OUTDOOR&limit=20
+
+# Top scorers with minimum 10 matches
+GET /persons/topscorers?min_matches=10&order=total_goals.desc
+```
+
 ---
 
 ## Fixtures & Matches
